@@ -4,7 +4,6 @@ use std::thread;
 use std::time::Duration;
 use rand::distr::Alphanumeric;
 use rand::Rng;
-
 fn help() {
     print!("\x1B[0;34m");
     print!(r#"
@@ -15,7 +14,7 @@ fn help() {
                                                         |Args|
 
 crasher (-h | --help) - Printing this help message
-crasher (-m | --mode) (cpu | ram | disk) - Selecting mode cpu or ram
+crasher (-m | --mode) (cpu | ram | disk) - Selecting mode cpu, ram or disk
 crasher (-t | --threads) (number: u32) - Number of threads to work
 crasher (-s | --sleep) (time: u32) - milliseconds to sleep after allocation or calculation
 crasher (-p | --power) (power: u128) - (mode - ram power is allocattion size in mb | mode - cpu power is difficulty of calculation | mode - disk weight of file )
@@ -112,7 +111,7 @@ async fn main() {
     let mut mode: String = "ram".to_string();
     let mut threads: u32 = 1;
     let mut sleep: u32 = 100;
-    let mut power: u128 = 1;
+    let mut power: u128 = 50;
 
     if args.len() <= 2 {
         help();
