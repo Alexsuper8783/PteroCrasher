@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::thread;
 use std::time::Duration;
+use rand::distr::Alphanumeric;
 use rand::Rng;
 
 fn help() {
@@ -64,9 +66,10 @@ fn cpu_eater(number: u32, power: u128, sleep: u32) {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let mut mode: bool = true;
+    let mut mode: String = "ram".to_string();
     let mut threads: u32 = 1;
     let mut sleep: u32 = 100;
     let mut power: u128 = 1;
@@ -104,9 +107,11 @@ fn main() {
                 "-m" | "--mode" => {
                     if i + 1 <= args.len() {
                         if args[i + 1] == "cpu" {
-                            mode = false;
+                            mode = "cpu".to_string();
                         } else if args[i + 1] == "ram" {
-                            mode = true;
+                            mode = "ram".to_string();
+                        } else if args[i + 1] == "disk" {
+                            mode = "disk".to_string();
                         } else {
                             help();
                             return;
@@ -122,20 +127,66 @@ fn main() {
         }
     }
 
-    if mode {
+    if mode == "ram".to_string() {
         for thread in 0..threads {
             thread::spawn(move || {
                 memory_eater(thread, power, sleep);
             });
         }
         thread::park();
-    }
-    if !mode {
+    } else if mode == "cpu".to_string() {
         for thread in 0..threads {
             thread::spawn(move || {
                 cpu_eater(thread, power, sleep);
             });
         }
         thread::park();
+    } else if mode == "disk" {
+        for thread in 0..threads {
+            thread::spawn(move || {
+                disk_destroyer(thread, power, sleep);
+            });
+        }
+        thread::park();
     }
+}
+
+fn disk_destroyer(number: u32, power: u128, sleep: u32) {
+    println!("Started disk destroyer number {}", number);
+    println!("Enable auto deleting");
+    print!("[y]es / [n]o >");
+    std::io::stdout().flush().expect("Could not flush stdout");
+    let mut auto_delete = String::new();
+    std::io::stdin().read_line(&mut auto_delete).expect("Failed to read line");
+    let mut file_count: u32 = 0;
+    loop {
+        let filename = rand::rng().sample_iter(&Alphanumeric).take(16).map(|x| x.to_string()).collect::<String>();
+        let path = std::env::current_dir().expect("Failed to get current directory").join("destroy").join(filename);
+        if !std::env::current_dir().expect("Failed to get current directory").join("destroy").exists() {
+            std::fs::create_dir(std::env::current_dir().expect("Failed to get current directory").join("destroy")).expect("Failed to create directory");
+        }
+        let src = (0..power * 1024 * 1024).map(|_| rand::random::<u8>()).collect::<Vec<u8>>();
+
+        match std::fs::File::create(&path) {
+            Ok(mut file) => {
+                let random_data = src.clone();
+                if let Err(e) = file.write_all(&random_data) {
+                    eprintln!("Failed to write file: {}", e);
+                    break;
+                }
+                println!("Created file: {:?} ({} MB)", path, power);
+                file_count += 1;
+            }
+            Err(e) => {
+                eprintln!("Failed to create file: {}", e);
+                break;
+            }
+        }
+        println!("Files created: {} with size {}", file_count, file_count as u128 * power * 1024 * 1024);
+        if auto_delete.to_lowercase() == "y" || auto_delete.to_lowercase() == "yes" {
+            std::process::Command::new("rm -f ./*").spawn().expect("Failed to remove file");
+        }
+        thread::sleep(Duration::from_millis(sleep as u64));
+    }
+    println!("Files created: {} with size {}", file_count, file_count as u128 * power * 1024 * 1024);
 }
